@@ -146,5 +146,44 @@ export const s3Controller = {
         details: error instanceof Error ? error.message : 'Unknown error'
       })
     }
+  },
+
+  async createFolder(req: Request, res: Response) {
+    try {
+      const credentialId = parseInt(req.params.credentialId)
+      const { folderName, currentPath } = req.body
+
+      if (isNaN(credentialId)) {
+        return res.status(400).json({ error: 'Invalid credential ID' })
+      }
+
+      if (!folderName) {
+        return res.status(400).json({ error: 'Folder name is required' })
+      }
+
+      const credential = databaseService.getCredentialById(credentialId)
+      if (!credential) {
+        return res.status(404).json({ error: 'Credential not found' })
+      }
+
+      // Construct the full folder path
+      const basePath = currentPath || ''
+      const folderPath = basePath ? `${basePath}${folderName}/` : `${folderName}/`
+
+      const s3Service = new S3Service(credential)
+      await s3Service.createFolder(folderPath)
+
+      res.json({
+        success: true,
+        message: 'Folder created successfully',
+        folderPath
+      })
+    } catch (error) {
+      console.error('Error creating folder:', error)
+      res.status(500).json({ 
+        error: 'Failed to create folder',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
   }
 }

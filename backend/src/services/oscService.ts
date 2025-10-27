@@ -27,23 +27,52 @@ export class OSCService {
     // Get service access token - this will use the OSC_ACCESS_TOKEN from environment
     const serviceAccessToken = await this.ctx.getServiceAccessToken('eyevinn-s3-sync')
 
+    // Determine if we're copying a folder (ends with /) or a file
+    const isSourceFolder = sourceKey.endsWith('/')
+    const isDestFolder = destKey.endsWith('/')
+    
+    // Handle different copy scenarios
+    let finalDestKey = destKey
+    let useSingleFile = false
+    
+    if (isSourceFolder) {
+      // Source is a folder - always use recursive copy (no --single-file)
+      useSingleFile = false
+    } else {
+      // Source is a file
+      if (isDestFolder) {
+        // File to folder: append filename to destination folder
+        const sourceFilename = sourceKey.split('/').pop() || sourceKey
+        finalDestKey = destKey + sourceFilename
+        useSingleFile = true
+      } else {
+        // File to file: use destination as-is
+        useSingleFile = true
+      }
+    }
+    
     // Construct S3 URLs
     const sourceUrl = `s3://${sourceCredential.bucketName}/${sourceKey}`
-    const destUrl = `s3://${destCredential.bucketName}/${destKey}`
+    const destUrl = `s3://${destCredential.bucketName}/${finalDestKey}`
 
     // Create job parameters - OSC only allows alphabetic characters in names
     const generateJobName = () => {
       const chars = 'abcdefghijklmnopqrstuvwxyz'
-      let result = 'copy'
+      let result = isSourceFolder ? 'folder' : 'file'
       for (let i = 0; i < 8; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length))
       }
       return result
     }
 
+    // Use --single-file flag only for file operations
+    const cmdArgs = useSingleFile 
+      ? `--single-file ${sourceUrl} ${destUrl}`
+      : `${sourceUrl} ${destUrl}`
+
     const jobParams = {
       name: generateJobName(),
-      cmdLineArgs: `--single-file ${sourceUrl} ${destUrl}`,
+      cmdLineArgs: cmdArgs,
       SourceAccessKey: sourceCredential.accessKeyId,
       SourceSecretKey: sourceCredential.secretAccessKey,
       DestAccessKey: destCredential.accessKeyId,

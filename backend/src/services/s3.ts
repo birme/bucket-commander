@@ -1,4 +1,4 @@
-import { S3Client, ListObjectsV2Command, ListObjectsV2CommandOutput, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, ListObjectsV2Command, ListObjectsV2CommandOutput, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { BucketCredential, S3Object, BucketContent } from '../models/BucketCredential'
 
 export class S3Service {
@@ -86,6 +86,25 @@ export class S3Service {
     } catch (error) {
       console.error('Error deleting object:', error)
       throw new Error(`Failed to delete object: ${error}`)
+    }
+  }
+
+  async createFolder(folderPath: string): Promise<void> {
+    try {
+      // Ensure the folder path ends with a slash
+      const folderKey = folderPath.endsWith('/') ? folderPath : folderPath + '/'
+      
+      const command = new PutObjectCommand({
+        Bucket: this.credential.bucketName,
+        Key: folderKey,
+        Body: '',
+        ContentLength: 0
+      })
+
+      await this.client.send(command)
+    } catch (error) {
+      console.error('Error creating folder:', error)
+      throw new Error(`Failed to create folder: ${error}`)
     }
   }
 }

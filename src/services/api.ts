@@ -87,6 +87,16 @@ class ApiService {
   async getJobStatus(jobName: string): Promise<{ jobName: string; status: string; createdAt?: string; updatedAt?: string; output?: string; error?: string }> {
     return this.request<{ jobName: string; status: string; createdAt?: string; updatedAt?: string; output?: string; error?: string }>(`/s3/job/${jobName}/status`)
   }
+
+  async createFolder(credentialId: number, folderName: string, currentPath?: string): Promise<{ success: boolean; message: string; folderPath: string }> {
+    return this.request<{ success: boolean; message: string; folderPath: string }>(`/s3/${credentialId}/create-folder`, {
+      method: 'POST',
+      body: JSON.stringify({
+        folderName,
+        currentPath
+      })
+    })
+  }
 }
 
 export const apiService = new ApiService()

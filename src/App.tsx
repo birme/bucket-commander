@@ -190,7 +190,7 @@ const App: React.FC = () => {
 
   const handleCopyLeftToRight = async () => {
     if (!leftPaneCredentialId || !rightPaneCredentialId || !leftSelectedFile) {
-      alert('Please select both buckets and a file to copy')
+      alert('Please select both buckets and a file or folder to copy')
       return
     }
 
@@ -204,7 +204,8 @@ const App: React.FC = () => {
       const result = await apiService.copyFile(
         leftPaneCredentialId,
         rightPaneCredentialId,
-        leftSelectedFile
+        leftSelectedFile,
+        rightCurrentPath
       )
       
       // Start polling job status
@@ -222,7 +223,7 @@ const App: React.FC = () => {
 
   const handleCopyRightToLeft = async () => {
     if (!rightPaneCredentialId || !leftPaneCredentialId || !rightSelectedFile) {
-      alert('Please select both buckets and a file to copy')
+      alert('Please select both buckets and a file or folder to copy')
       return
     }
 
@@ -236,7 +237,8 @@ const App: React.FC = () => {
       const result = await apiService.copyFile(
         rightPaneCredentialId,
         leftPaneCredentialId,
-        rightSelectedFile
+        rightSelectedFile,
+        leftCurrentPath
       )
       
       // Start polling job status
@@ -288,14 +290,14 @@ const App: React.FC = () => {
           <CopyButton 
             onClick={handleCopyLeftToRight}
             disabled={copyLoading || !leftPaneCredentialId || !rightPaneCredentialId || !leftSelectedFile || leftSelectedFile === '..'}
-            title="Copy selected file from left to right"
+            title="Copy selected file or folder from left to right"
           >
             {copyLoading ? '⟳' : '→'}
           </CopyButton>
           <CopyButton 
             onClick={handleCopyRightToLeft}
             disabled={copyLoading || !leftPaneCredentialId || !rightPaneCredentialId || !rightSelectedFile || rightSelectedFile === '..'}
-            title="Copy selected file from right to left"
+            title="Copy selected file or folder from right to left"
           >
             {copyLoading ? '⟳' : '←'}
           </CopyButton>
@@ -342,7 +344,7 @@ const App: React.FC = () => {
           )}
         </div>
         <div>
-          ↑↓-Navigate | Enter-Open | Backspace-Up | Tab-Switch Panes | →←-Copy Between Panes | F8-Delete
+          ↑↓-Navigate | Enter-Open | Backspace-Up | Tab-Switch Panes | →←-Copy Between Panes | F7-New Folder | F8-Delete
         </div>
       </StatusBar>
 

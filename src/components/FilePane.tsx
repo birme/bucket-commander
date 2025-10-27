@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { BucketCredential, S3Object, BucketContent } from '@/types/bucket'
 import { apiService } from '@/services/api'
+import { CreateFolderModal } from './CreateFolderModal'
 import {
   PaneContainer,
   PaneHeader,
@@ -45,6 +46,7 @@ export const FilePane: React.FC<FilePaneProps> = ({
   const [loading, setLoading] = useState<boolean>(false)
   const [, setDeleteLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState<boolean>(false)
   const fileListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -122,6 +124,12 @@ export const FilePane: React.FC<FilePaneProps> = ({
         e.preventDefault()
         if (currentPath) {
           handleGoUp()
+        }
+        break
+      case 'F7':
+        e.preventDefault()
+        if (selectedCredentialId) {
+          handleCreateFolder()
         }
         break
       case 'F8':
@@ -218,6 +226,17 @@ export const FilePane: React.FC<FilePaneProps> = ({
     }
   }
 
+  const handleCreateFolder = () => {
+    setIsCreateFolderModalOpen(true)
+  }
+
+  const handleFolderCreated = () => {
+    // Reload the current directory to show the new folder
+    if (selectedCredentialId) {
+      loadBucketContent(currentPath)
+    }
+  }
+
   const handleDelete = async () => {
     if (!selectedCredentialId || !selectedFile || selectedFile === '..' || !content) {
       return
@@ -287,6 +306,13 @@ export const FilePane: React.FC<FilePaneProps> = ({
               </option>
             ))}
           </BucketSelector>
+          <ReloadButton
+            onClick={handleCreateFolder}
+            disabled={!selectedCredentialId || loading}
+            title="Create new folder"
+          >
+            📁+
+          </ReloadButton>
           <ReloadButton
             onClick={handleReload}
             disabled={!selectedCredentialId || loading}
@@ -371,6 +397,14 @@ export const FilePane: React.FC<FilePaneProps> = ({
           </div>
         )}
       </FileList>
+
+      <CreateFolderModal
+        isOpen={isCreateFolderModalOpen}
+        onClose={() => setIsCreateFolderModalOpen(false)}
+        onFolderCreated={handleFolderCreated}
+        credentialId={selectedCredentialId}
+        currentPath={currentPath}
+      />
     </PaneContainer>
   )
 }
