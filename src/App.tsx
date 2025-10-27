@@ -98,8 +98,10 @@ const App: React.FC = () => {
         return newJobs
       })
 
-      // If job is completed or failed, stop polling
-      if (status.status === 'completed' || status.status === 'failed' || status.status === 'error') {
+      // Final states - stop polling
+      const finalStates = ['completed', 'failed', 'error', 'cancelled', 'timeout', 'SuccessCriteriaMet']
+      
+      if (finalStates.includes(status.status)) {
         setTimeout(() => {
           setActiveJobs(prev => {
             const newJobs = new Map(prev)
@@ -110,10 +112,10 @@ const App: React.FC = () => {
         return
       }
 
-      // Continue polling if job is still running
-      if (status.status === 'running' || status.status === 'pending' || status.status === 'created' || status.status === 'unknown') {
-        setTimeout(() => pollJobStatus(jobName, 0), 2000) // Poll every 2 seconds
-      }
+      // Continue polling for any non-final state
+      // This includes: running, pending, created, unknown, starting, queued, etc.
+      console.log(`Continuing to poll job ${jobName} with status: ${status.status}`)
+      setTimeout(() => pollJobStatus(jobName, 0), 2000) // Poll every 2 seconds
     } catch (error) {
       console.error(`Error polling job status for ${jobName}:`, error)
       
@@ -267,15 +269,20 @@ const App: React.FC = () => {
           Buckets configured: {credentials.length}
           {activeJobs.size > 0 && (
             <span style={{ marginLeft: '16px', color: '#ffff00' }}>
-              Active copies: {Array.from(activeJobs.values()).map((job, index) => (
-                <span key={job.jobName} style={{ marginLeft: index > 0 ? '8px' : '4px' }}>
-                  {job.jobName.substring(4, 12)}:{job.status}
-                  {job.status === 'completed' && ' ✅'}
-                  {job.status === 'failed' && ' ❌'}
-                  {job.status === 'error' && ' ❌'}
-                  {(job.status === 'running' || job.status === 'pending') && ' ⟳'}
-                </span>
-              ))}
+              Active copies: {Array.from(activeJobs.values()).map((job, index) => {
+                const getStatusIcon = (status: string) => {
+                  if (['completed', 'SuccessCriteriaMet'].includes(status)) return ' ✅'
+                  if (['failed', 'error', 'cancelled', 'timeout'].includes(status)) return ' ❌'
+                  // Any non-final status gets spinning icon
+                  return ' ⟳'
+                }
+                
+                return (
+                  <span key={job.jobName} style={{ marginLeft: index > 0 ? '8px' : '4px' }}>
+                    {job.jobName.substring(4, 12)}:{job.status}{getStatusIcon(job.status)}
+                  </span>
+                )
+              })}
             </span>
           )}
         </div>

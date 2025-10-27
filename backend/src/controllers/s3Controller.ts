@@ -132,6 +132,7 @@ export const s3Controller = {
     try {
       const { jobName } = req.params
 
+      console.log(jobName);
       if (!jobName) {
         return res.status(400).json({ error: 'Job name is required' })
       }
