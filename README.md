@@ -8,6 +8,12 @@ A Norton Commander-inspired dual-pane file manager for S3 buckets, built as a mo
 
 *Norton Commander-inspired dual-pane interface for S3 bucket management*
 
+## 🚀 Try It Now - No Installation Required!
+
+**Available as a ready-to-use service**: [Launch Bucket Commander on Open Source Cloud](https://app.osaas.io/browse/birme-bucket-commander)
+
+Skip the setup and start managing your S3 buckets immediately with our hosted version.
+
 ## Architecture
 
 This application consists of two main components:
