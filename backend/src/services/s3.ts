@@ -130,22 +130,90 @@ export class S3Service {
         isFolder: false,
       }))
 
-      // Filter objects that match the search query
       const filteredObjects = allObjects.filter(obj => {
         const fileName = obj.key.split('/').pop() || obj.key
         return fileName.toLowerCase().includes(query.toLowerCase())
       })
 
-      // Filter folders by search query  
+      // Check folders that match the query and search inside them
       const allFolders = (response.CommonPrefixes || []).map(prefix => prefix.Prefix || '')
-      const filteredFolders = allFolders.filter(folder => {
+      const matchingFolders: string[] = []
+      const additionalObjects: S3Object[] = []
+
+      for (const folder of allFolders) {
         const folderName = folder.split('/').slice(-2)[0]
-        return folderName.toLowerCase().includes(query.toLowerCase())
-      })
+        if (folderName.toLowerCase().includes(query.toLowerCase())) {
+          matchingFolders.push(folder)
+          
+          // Search inside matching folders for more objects
+          try {
+            const nestedCommand = new ListObjectsV2Command({
+              Bucket: this.credential.bucketName,
+              Prefix: folder,
+              MaxKeys: maxResults,
+            })
+            const nestedResponse = await this.client.send(nestedCommand)
+            
+            const nestedObjects = (nestedResponse.Contents || [])
+              .map(obj => ({
+                key: obj.Key || '',
+                size: obj.Size || 0,
+                lastModified: obj.LastModified || new Date(),
+                etag: obj.ETag || '',
+                storageClass: obj.StorageClass,
+                isFolder: false,
+              }))
+              .filter(obj => {
+                const fileName = obj.key.split('/').pop() || obj.key
+                return fileName.toLowerCase().includes(query.toLowerCase())
+              })
+            
+            additionalObjects.push(...nestedObjects)
+          } catch (error) {
+            console.error(`Error searching in folder ${folder}:`, error)
+          }
+        }
+      }
+
+      // Also search using query as a direct prefix (for exact folder matches)
+      try {
+        const directPrefixSearch = prefix + query
+        const directCommand = new ListObjectsV2Command({
+          Bucket: this.credential.bucketName,
+          Prefix: directPrefixSearch,
+          Delimiter: '/',
+          MaxKeys: maxResults,
+        })
+        const directResponse = await this.client.send(directCommand)
+        
+        // Add objects that match the direct prefix search
+        const directObjects = (directResponse.Contents || []).map(obj => ({
+          key: obj.Key || '',
+          size: obj.Size || 0,
+          lastModified: obj.LastModified || new Date(),
+          etag: obj.ETag || '',
+          storageClass: obj.StorageClass,
+          isFolder: false,
+        }))
+        
+        // Add folders from direct prefix search
+        const directFolders = (directResponse.CommonPrefixes || []).map(prefix => prefix.Prefix || '')
+        
+        additionalObjects.push(...directObjects)
+        matchingFolders.push(...directFolders)
+      } catch (error) {
+        console.error(`Error in direct prefix search:`, error)
+      }
+
+      // Remove duplicates from objects and folders
+      const uniqueObjects = Array.from(
+        new Map([...filteredObjects, ...additionalObjects].map(obj => [obj.key, obj])).values()
+      )
+      const uniqueFolders = Array.from(new Set(matchingFolders))
 
       return {
-        objects: filteredObjects,
-        folders: filteredFolders,
+        objects: uniqueObjects,
+        folders: uniqueFolders,
         prefix,
         hasMore: response.IsTruncated || false,
         nextContinuationToken: response.NextContinuationToken,
