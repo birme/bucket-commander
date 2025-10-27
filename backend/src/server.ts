@@ -37,7 +37,11 @@ app.get('/api/health', (req, res) => {
 })
 
 // Serve static files from frontend build
-const frontendBuildPath = path.join(__dirname, '../../dist')
+// In Docker: ./frontend-dist, Local dev: ../../dist
+const frontendBuildPath = process.env.NODE_ENV === 'production' 
+  ? path.join(__dirname, '../frontend-dist')
+  : path.join(__dirname, '../../dist')
+console.log(`📁 Frontend build path: ${frontendBuildPath}`)
 app.use(express.static(frontendBuildPath))
 
 // Handle client-side routing - send all non-API requests to index.html

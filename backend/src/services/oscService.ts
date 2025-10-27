@@ -112,8 +112,6 @@ export class OSCService {
       if (!job) {
         throw new Error(`Job ${jobName} not found`)
       }
-
-      console.log('Job response:', JSON.stringify(job, null, 2))
       
       return {
         jobName,

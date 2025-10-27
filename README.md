@@ -25,11 +25,15 @@ This application consists of two main components:
 ## Features
 
 - ✅ **Dual-Pane Interface**: Norton Commander-inspired layout with left and right file panes
-- ✅ **S3 Credential Management**: Securely store and manage AWS S3 credentials
-- ✅ **Bucket Browsing**: Navigate through S3 buckets, folders, and files
+- ✅ **S3 Credential Management**: Securely store and manage AWS S3 credentials with session token support
+- ✅ **Bucket Browsing**: Navigate through S3 buckets, folders, and files with keyboard navigation
+- ✅ **File Operations**: S3-to-S3 copying via Open Source Cloud services with real-time job monitoring
+- ✅ **Folder Management**: Create new folders with F7 shortcut
+- ✅ **File Management**: Delete files/folders with F8 shortcut and confirmation
 - ✅ **Connection Testing**: Validate credentials when adding/updating bucket configurations
 - ✅ **Persistent Storage**: SQLite database for credential storage
-- 🚧 **File Operations**: Future support for S3-to-S3 copying via Open Source Cloud services
+- ✅ **Smart Persistence**: Local storage for pane selections with 6-hour expiration
+- ✅ **Keyboard Navigation**: Full arrow key navigation, Enter to enter folders, Backspace to go up
 
 ## Getting Started
 
@@ -126,6 +130,12 @@ docker run -d \
 ### S3 Operations
 - `GET /api/s3/:credentialId/objects` - List objects in bucket
 - `GET /api/s3/:credentialId/test` - Test connection
+- `DELETE /api/s3/:credentialId/objects` - Delete object or folder
+- `POST /api/s3/:credentialId/folders` - Create new folder
+
+### OSC Operations
+- `POST /api/osc/copy` - Start S3-to-S3 copy job via Open Source Cloud
+- `GET /api/osc/jobs/:jobName` - Get job status and monitor progress
 
 ### Health Check
 - `GET /api/health` - API health status
@@ -145,13 +155,49 @@ docker run -v bucket-commander-data:/app/data bucket-commander
 docker run -v /host/path/to/data:/app/data bucket-commander
 ```
 
+## Keyboard Shortcuts
+
+- **Arrow Keys**: Navigate through files and folders
+- **Enter**: Enter selected folder or focus on item
+- **Backspace**: Go up one directory level
+- **Tab**: Switch between left and right panes
+- **F7**: Create new folder in current directory
+- **F8**: Delete selected file or folder (with confirmation)
+- **Ctrl+C**: Copy selected file/folder to opposite pane
+
+## Usage Guide
+
+### Adding S3 Credentials
+1. Click "Add Bucket" to open the credential form
+2. Fill in your S3 credentials:
+   - **Alias**: Friendly name for the connection
+   - **Bucket**: S3 bucket name
+   - **Region**: AWS region (e.g., us-east-1)
+   - **Access Key ID**: Your AWS access key
+   - **Secret Access Key**: Your AWS secret key
+   - **Session Token**: (Optional) For temporary credentials
+   - **Endpoint**: (Optional) For S3-compatible services like MinIO or DigitalOcean Spaces
+
+### File Operations
+- **Copy**: Select a file/folder and click the copy button (→ or ←) or use Ctrl+C
+- **Delete**: Select a file/folder and press F8 for deletion with confirmation
+- **Create Folder**: Press F7 to create a new folder in the current directory
+- **Navigate**: Use arrow keys to move through the file list, Enter to open folders
+
+### Copy Job Monitoring
+When copying files between S3 buckets, the application uses Open Source Cloud services:
+- Real-time job status updates
+- Progress monitoring with automatic polling
+- Support for both file-to-file and file-to-folder copying
+- Intelligent destination path handling
+
 ## Future Enhancements
 
-- S3-to-S3 file copying using Open Source Cloud services
 - File preview functionality
 - Bulk operations
 - Search and filtering
-- Keyboard shortcuts (F1-F10 functions)
+- Additional keyboard shortcuts (F1-F6, F9-F10 functions)
+- File size and modification date display
 
 ## Security Notes
 
