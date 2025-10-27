@@ -69,38 +69,38 @@ export const FilePane: React.FC<FilePaneProps> = ({
     }
   }, [selectedCredentialId, initialPath])
 
-  // Get all available items for navigation with search filtering
+  // Trigger search when searchFilter changes
+  useEffect(() => {
+    if (selectedCredentialId && content) {
+      // Debounce search to avoid too many API calls
+      const timeoutId = setTimeout(() => {
+        loadBucketContent(currentPath)
+      }, 300)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [searchFilter])
+
+  // Get all available items for navigation (search filtering now done server-side)
   const getAllItems = (): FileListItem[] => {
     if (!content) return []
     const items: FileListItem[] = []
     
     // Add ".." if we're not at root (always show, regardless of search)
-    if (currentPath) {
+    if (currentPath && !searchFilter) {
       items.push({ type: 'parent', key: '..', isFolder: true })
     }
     
-    // Filter function for search
-    const matchesSearch = (name: string) => {
-      if (!searchFilter) return true
-      return name.toLowerCase().includes(searchFilter.toLowerCase())
-    }
-    
-    // Add folders (filtered by search)
+    // Add folders (already filtered by server-side search)
     content.folders.forEach(folder => {
-      const folderName = folder.split('/').slice(-2)[0]
-      if (matchesSearch(folderName)) {
-        items.push({ type: 'folder', key: folder, isFolder: true })
-      }
+      items.push({ type: 'folder', key: folder, isFolder: true })
     })
     
-    // Add files (filtered by search)
+    // Add files (already filtered by server-side search)
     content.objects
       .filter(obj => obj.key !== currentPath)
       .forEach(obj => {
-        const fileName = obj.key.split('/').pop() || obj.key
-        if (matchesSearch(fileName)) {
-          items.push({ type: 'file', key: obj.key, isFolder: obj.isFolder, obj: obj })
-        }
+        items.push({ type: 'file', key: obj.key, isFolder: obj.isFolder, obj: obj })
       })
     
     return items
@@ -182,14 +182,21 @@ export const FilePane: React.FC<FilePaneProps> = ({
     }
   }
 
-  const loadBucketContent = async (prefix: string = '') => {
+  const loadBucketContent = async (prefix: string = '', forceSearch?: boolean) => {
     if (!selectedCredentialId) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const bucketContent = await apiService.listObjects(selectedCredentialId, prefix)
+      let bucketContent
+      if ((searchFilter && searchFilter.trim()) || forceSearch) {
+        // Use server-side search when there's a search query
+        bucketContent = await apiService.searchObjects(selectedCredentialId, searchFilter.trim(), prefix)
+      } else {
+        // Use regular listing when no search query
+        bucketContent = await apiService.listObjects(selectedCredentialId, prefix)
+      }
       setContent(bucketContent)
       setCurrentPath(prefix)
       setSelectedFile(null)
@@ -319,29 +326,24 @@ export const FilePane: React.FC<FilePaneProps> = ({
   const getFileCountDisplay = () => {
     if (!content) return ''
     
-    const allFileCount = content.objects.filter(obj => obj.key !== currentPath).length
-    const allFolderCount = content.folders.length
-    const allTotalItems = allFileCount + allFolderCount
+    const fileCount = content.objects.filter(obj => obj.key !== currentPath).length
+    const folderCount = content.folders.length
+    const totalItems = fileCount + folderCount
     
-    // If searching, show filtered vs total counts
-    if (searchFilter) {
-      const filteredItems = allItems.filter(item => item.type !== 'parent')
-      const filteredFileCount = filteredItems.filter(item => item.type === 'file').length
-      const filteredFolderCount = filteredItems.filter(item => item.type === 'folder').length
-      const filteredTotal = filteredItems.length
-      
+    // If searching, show search results
+    if (searchFilter && searchFilter.trim()) {
       if (content.hasMore) {
-        return `${filteredTotal}/${allTotalItems}+ items (${filteredFileCount}/${allFileCount}+ files, ${filteredFolderCount}/${allFolderCount} folders)`
+        return `Search results: ${totalItems}+ items (${fileCount}+ files, ${folderCount} folders) matching "${searchFilter}"`
       } else {
-        return `${filteredTotal}/${allTotalItems} items (${filteredFileCount}/${allFileCount} files, ${filteredFolderCount}/${allFolderCount} folders)`
+        return `Search results: ${totalItems} items (${fileCount} files, ${folderCount} folders) matching "${searchFilter}"`
       }
     }
     
     // Normal display without search
     if (content.hasMore) {
-      return `${allTotalItems}+ items (${allFileCount}+ files, ${allFolderCount} folders)`
+      return `${totalItems}+ items (${fileCount}+ files, ${folderCount} folders)`
     } else {
-      return `${allTotalItems} items (${allFileCount} files, ${allFolderCount} folders)`
+      return `${totalItems} items (${fileCount} files, ${folderCount} folders)`
     }
   }
 

@@ -185,5 +185,36 @@ export const s3Controller = {
         details: error instanceof Error ? error.message : 'Unknown error'
       })
     }
+  },
+
+  async searchObjects(req: Request, res: Response) {
+    try {
+      const credentialId = parseInt(req.params.credentialId)
+      if (isNaN(credentialId)) {
+        return res.status(400).json({ error: 'Invalid credential ID' })
+      }
+
+      const credential = databaseService.getCredentialById(credentialId)
+      if (!credential) {
+        return res.status(404).json({ error: 'Credential not found' })
+      }
+
+      const query = req.query.query as string
+      if (!query) {
+        return res.status(400).json({ error: 'Search query is required' })
+      }
+
+      const prefix = req.query.prefix as string || ''
+      const maxResults = parseInt(req.query.maxResults as string) || 1000
+      const continuationToken = req.query.continuationToken as string
+
+      const s3Service = new S3Service(credential)
+      const content = await s3Service.searchObjects(query, prefix, maxResults, continuationToken)
+
+      res.json(content)
+    } catch (error) {
+      console.error('Error searching objects:', error)
+      res.status(500).json({ error: 'Failed to search objects' })
+    }
   }
 }

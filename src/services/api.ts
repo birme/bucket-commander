@@ -57,6 +57,17 @@ class ApiService {
     return this.request<BucketContent>(`/s3/${credentialId}/objects${query}`)
   }
 
+  async searchObjects(credentialId: number, query: string, prefix?: string, maxResults?: number, continuationToken?: string): Promise<BucketContent> {
+    const params = new URLSearchParams()
+    params.append('query', query)
+    if (prefix) params.append('prefix', prefix)
+    if (maxResults) params.append('maxResults', maxResults.toString())
+    if (continuationToken) params.append('continuationToken', continuationToken)
+    
+    const queryString = `?${params.toString()}`
+    return this.request<BucketContent>(`/s3/${credentialId}/search${queryString}`)
+  }
+
   async testConnection(credentialId: number): Promise<{ valid: boolean }> {
     return this.request<{ valid: boolean }>(`/s3/${credentialId}/test`)
   }
