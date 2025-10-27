@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  bucket-commander:
+    build: .
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
+    environment:
+      - PORT=${PORT:-3001}
+      - DB_PATH=/app/data
+      - OSC_ACCESS_TOKEN=${OSC_ACCESS_TOKEN}
+      - NODE_ENV=production
+    volumes:
+      # Mount a volume for the database
+      - bucket-commander-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const options = { host: 'localhost', port: process.env.PORT || 3001, path: '/api/health', timeout: 2000 }; const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  bucket-commander-data:
+    driver: local

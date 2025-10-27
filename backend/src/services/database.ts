@@ -8,13 +8,16 @@ class DatabaseService {
   private db: Database.Database
 
   constructor() {
-    const userDataPath = path.join(os.homedir(), '.bucket-commander')
+    // Use DB_PATH environment variable or default to ~/.bucket-commander
+    const defaultUserDataPath = path.join(os.homedir(), '.bucket-commander')
+    const userDataPath = process.env.DB_PATH || defaultUserDataPath
     
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true })
     }
     
     const dbPath = path.join(userDataPath, 'bucket-commander.db')
+    console.log(`📄 Database path: ${dbPath}`)
     this.db = new Database(dbPath)
     this.initializeDatabase()
   }

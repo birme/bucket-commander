@@ -2,6 +2,12 @@
 
 A Norton Commander-inspired dual-pane file manager for S3 buckets, built as a modern web application.
 
+## Screenshot
+
+![Bucket Commander Interface](screenshot.png)
+
+*Norton Commander-inspired dual-pane interface for S3 bucket management*
+
 ## Architecture
 
 This application consists of two main components:
@@ -27,11 +33,53 @@ This application consists of two main components:
 
 ## Getting Started
 
-### Prerequisites
+### Option 1: Docker Deployment (Recommended)
+
+1. **Clone and Configure**
+   ```bash
+   git clone <repository-url>
+   cd bucket-commander
+   cp .env.example .env
+   # Edit .env and set your OSC_ACCESS_TOKEN
+   ```
+
+2. **Run with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Access Application**
+   - Frontend: http://localhost:3001
+   - API: http://localhost:3001/api
+
+#### Manual Docker Build
+```bash
+# Build image
+docker build -t bucket-commander .
+
+# Run with volume mounting
+docker run -d \
+  --name bucket-commander \
+  -p 3001:3001 \
+  -v bucket-commander-data:/app/data \
+  -e OSC_ACCESS_TOKEN=your_token_here \
+  bucket-commander
+```
+
+#### Environment Variables
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OSC_ACCESS_TOKEN` | Open Source Cloud access token | - | Yes |
+| `PORT` | Application port | `3001` | No |
+| `DB_PATH` | Database directory | `/app/data` (Docker)<br>`~/.bucket-commander` (Local) | No |
+
+### Option 2: Local Development
+
+#### Prerequisites
 - Node.js 18+ 
 - npm or yarn
 
-### Installation & Development
+#### Installation & Development
 
 1. **Install All Dependencies**
    ```bash
@@ -53,7 +101,7 @@ This application consists of two main components:
    npm run dev:frontend
    ```
 
-### Production Build & Deployment
+#### Production Build & Deployment
 
 1. **Build Everything**
    ```bash
@@ -85,7 +133,17 @@ This application consists of two main components:
 ## Database
 
 The application uses SQLite for persistent storage of S3 credentials. The database file is created at:
-- **Development/Production**: `~/.bucket-commander/bucket-commander.db`
+- **Docker**: `/app/data/bucket-commander.db` (mount volume for persistence)
+- **Local**: `~/.bucket-commander/bucket-commander.db` (or custom path via `DB_PATH` env var)
+
+For Docker deployments, use a volume to persist data:
+```bash
+# Named volume (recommended)
+docker run -v bucket-commander-data:/app/data bucket-commander
+
+# Bind mount to host directory
+docker run -v /host/path/to/data:/app/data bucket-commander
+```
 
 ## Future Enhancements
 
