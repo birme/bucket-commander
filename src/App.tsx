@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { apiService } from '@/services/api'
 import { BucketCredential } from '@/types/bucket'
+import { paneStorage, storageService } from '@/services/storage'
 import { FilePane } from '@/components/FilePane'
 import { CredentialModal } from '@/components/CredentialModal'
 import { CredentialListModal } from '@/components/CredentialListModal'
@@ -25,14 +26,18 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [activePaneRef, setActivePaneRef] = useState<'left' | 'right'>('left')
   const [leftSelectedFile, setLeftSelectedFile] = useState<string | null>(null)
-  const [_leftCurrentPath, setLeftCurrentPath] = useState<string>('')
+  const [leftCurrentPath, setLeftCurrentPath] = useState<string>('')
   const [rightSelectedFile, setRightSelectedFile] = useState<string | null>(null)
-  const [_rightCurrentPath, setRightCurrentPath] = useState<string>('')
+  const [rightCurrentPath, setRightCurrentPath] = useState<string>('')
   const [copyLoading, setCopyLoading] = useState(false)
   const [activeJobs, setActiveJobs] = useState<Map<string, any>>(new Map())
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false)
 
   useEffect(() => {
     loadCredentials()
+    
+    // Clean up expired localStorage items
+    storageService.cleanup()
   }, [])
 
   // Global keyboard shortcuts
@@ -51,6 +56,54 @@ const App: React.FC = () => {
     document.addEventListener('keydown', handleGlobalKeyDown)
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
   }, [isCredentialModalOpen, isCredentialListModalOpen])
+
+  // Load saved pane selections after credentials are loaded
+  useEffect(() => {
+    if (!loading && credentials.length > 0 && !hasLoadedInitialData) {
+      const savedSelections = paneStorage.loadPaneSelections()
+      console.log('Loading saved selections:', savedSelections)
+      
+      if (savedSelections) {
+        // Validate that saved credential IDs still exist
+        const validLeftId = savedSelections.leftId && credentials.some(c => c.id === savedSelections.leftId) 
+          ? savedSelections.leftId 
+          : undefined
+        const validRightId = savedSelections.rightId && credentials.some(c => c.id === savedSelections.rightId) 
+          ? savedSelections.rightId 
+          : undefined
+        
+        console.log('Valid IDs:', { validLeftId, validRightId, currentLeft: leftPaneCredentialId, currentRight: rightPaneCredentialId })
+        
+        if (validLeftId && !leftPaneCredentialId) {
+          console.log('Setting left pane:', validLeftId, savedSelections.leftPath)
+          setLeftPaneCredentialId(validLeftId)
+          if (savedSelections.leftPath) {
+            setLeftCurrentPath(savedSelections.leftPath)
+          }
+        }
+        if (validRightId && !rightPaneCredentialId) {
+          console.log('Setting right pane:', validRightId, savedSelections.rightPath)
+          setRightPaneCredentialId(validRightId)
+          if (savedSelections.rightPath) {
+            setRightCurrentPath(savedSelections.rightPath)
+          }
+        }
+      } else {
+        console.log('No saved selections found')
+      }
+      
+      // Mark that we've completed the initial load
+      setHasLoadedInitialData(true)
+    }
+  }, [loading, credentials, hasLoadedInitialData])
+
+  // Save pane selections to localStorage whenever they change (but only after initial load)
+  useEffect(() => {
+    if (hasLoadedInitialData) {
+      console.log('Saving pane selections (after initial load):', { leftPaneCredentialId, rightPaneCredentialId, leftCurrentPath, rightCurrentPath })
+      paneStorage.savePaneSelections(leftPaneCredentialId, rightPaneCredentialId, leftCurrentPath, rightCurrentPath)
+    }
+  }, [leftPaneCredentialId, rightPaneCredentialId, leftCurrentPath, rightCurrentPath, hasLoadedInitialData])
 
   const loadCredentials = async () => {
     try {
@@ -221,6 +274,7 @@ const App: React.FC = () => {
           credentials={credentials}
           credentialsLoading={loading}
           isActive={activePaneRef === 'left'}
+          initialPath={leftCurrentPath}
           onSelectedFileChange={(fileKey, currentPath) => {
             setLeftSelectedFile(fileKey)
             setLeftCurrentPath(currentPath)
@@ -254,6 +308,7 @@ const App: React.FC = () => {
           credentials={credentials}
           credentialsLoading={loading}
           isActive={activePaneRef === 'right'}
+          initialPath={rightCurrentPath}
           onSelectedFileChange={(fileKey, currentPath) => {
             setRightSelectedFile(fileKey)
             setRightCurrentPath(currentPath)

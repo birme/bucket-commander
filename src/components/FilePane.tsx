@@ -22,6 +22,7 @@ interface FilePaneProps {
   credentials: BucketCredential[]
   credentialsLoading: boolean
   isActive?: boolean
+  initialPath?: string
   onSelectedFileChange?: (fileKey: string | null, currentPath: string) => void
   onFileDeleted?: () => void
 }
@@ -33,6 +34,7 @@ export const FilePane: React.FC<FilePaneProps> = ({
   credentials,
   credentialsLoading,
   isActive,
+  initialPath,
   onSelectedFileChange,
   onFileDeleted
 }) => {
@@ -47,7 +49,8 @@ export const FilePane: React.FC<FilePaneProps> = ({
 
   useEffect(() => {
     if (selectedCredentialId) {
-      loadBucketContent('')
+      const pathToLoad = initialPath || ''
+      loadBucketContent(pathToLoad)
     } else {
       setContent(null)
       setCurrentPath('')
@@ -55,7 +58,7 @@ export const FilePane: React.FC<FilePaneProps> = ({
       setSelectedIndex(0)
       setError(null)
     }
-  }, [selectedCredentialId])
+  }, [selectedCredentialId, initialPath])
 
   // Get all available items for navigation
   const getAllItems = () => {
