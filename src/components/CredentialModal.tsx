@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { BucketCredential } from '@/types/bucket'
 import { apiService } from '@/services/api'
 import {
@@ -25,16 +25,41 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
   editCredential
 }) => {
   const [formData, setFormData] = useState({
-    name: editCredential?.name || '',
-    accessKeyId: editCredential?.accessKeyId || '',
-    secretAccessKey: editCredential?.secretAccessKey || '',
-    sessionToken: editCredential?.sessionToken || '',
-    region: editCredential?.region || 'us-east-1',
-    endpoint: editCredential?.endpoint || '',
-    bucketName: editCredential?.bucketName || ''
+    name: '',
+    accessKeyId: '',
+    secretAccessKey: '',
+    sessionToken: '',
+    region: 'us-east-1',
+    endpoint: '',
+    bucketName: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Update form data when editCredential changes
+  useEffect(() => {
+    if (editCredential) {
+      setFormData({
+        name: editCredential.name || '',
+        accessKeyId: editCredential.accessKeyId || '',
+        secretAccessKey: editCredential.secretAccessKey || '',
+        sessionToken: editCredential.sessionToken || '',
+        region: editCredential.region || 'us-east-1',
+        endpoint: editCredential.endpoint || '',
+        bucketName: editCredential.bucketName || ''
+      })
+    } else {
+      setFormData({
+        name: '',
+        accessKeyId: '',
+        secretAccessKey: '',
+        sessionToken: '',
+        region: 'us-east-1',
+        endpoint: '',
+        bucketName: ''
+      })
+    }
+  }, [editCredential])
 
   const handleInputChange = (field: keyof typeof formData) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -68,15 +93,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
       
       onCredentialAdded()
       onClose()
-      setFormData({
-        name: '',
-        accessKeyId: '',
-        secretAccessKey: '',
-        sessionToken: '',
-        region: 'us-east-1',
-        endpoint: '',
-        bucketName: ''
-      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save credential')
     } finally {
@@ -87,17 +103,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
   const handleCancel = () => {
     onClose()
     setError(null)
-    if (!editCredential) {
-      setFormData({
-        name: '',
-        accessKeyId: '',
-        secretAccessKey: '',
-        sessionToken: '',
-        region: 'us-east-1',
-        endpoint: '',
-        bucketName: ''
-      })
-    }
   }
 
   if (!isOpen) return null

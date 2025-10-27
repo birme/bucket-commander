@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { BucketCredential, S3Object, BucketContent } from '@/types/bucket'
+
+type FileListItem = 
+  | { type: 'parent'; key: string; isFolder: boolean }
+  | { type: 'folder'; key: string; isFolder: boolean }
+  | { type: 'file'; key: string; isFolder: boolean; obj: S3Object }
 import { apiService } from '@/services/api'
 import { CreateFolderModal } from './CreateFolderModal'
 import {
@@ -47,7 +52,9 @@ export const FilePane: React.FC<FilePaneProps> = ({
   const [, setDeleteLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState<boolean>(false)
+  const [searchFilter, setSearchFilter] = useState<string>('')
   const fileListRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (selectedCredentialId) {
@@ -62,26 +69,38 @@ export const FilePane: React.FC<FilePaneProps> = ({
     }
   }, [selectedCredentialId, initialPath])
 
-  // Get all available items for navigation
-  const getAllItems = () => {
+  // Get all available items for navigation with search filtering
+  const getAllItems = (): FileListItem[] => {
     if (!content) return []
-    const items = []
+    const items: FileListItem[] = []
     
-    // Add ".." if we're not at root
+    // Add ".." if we're not at root (always show, regardless of search)
     if (currentPath) {
       items.push({ type: 'parent', key: '..', isFolder: true })
     }
     
-    // Add folders
+    // Filter function for search
+    const matchesSearch = (name: string) => {
+      if (!searchFilter) return true
+      return name.toLowerCase().includes(searchFilter.toLowerCase())
+    }
+    
+    // Add folders (filtered by search)
     content.folders.forEach(folder => {
-      items.push({ type: 'folder', key: folder, isFolder: true })
+      const folderName = folder.split('/').slice(-2)[0]
+      if (matchesSearch(folderName)) {
+        items.push({ type: 'folder', key: folder, isFolder: true })
+      }
     })
     
-    // Add files
+    // Add files (filtered by search)
     content.objects
       .filter(obj => obj.key !== currentPath)
       .forEach(obj => {
-        items.push({ type: 'file', key: obj.key, isFolder: obj.isFolder, obj })
+        const fileName = obj.key.split('/').pop() || obj.key
+        if (matchesSearch(fileName)) {
+          items.push({ type: 'file', key: obj.key, isFolder: obj.isFolder, obj: obj })
+        }
       })
     
     return items
@@ -135,6 +154,17 @@ export const FilePane: React.FC<FilePaneProps> = ({
       case 'F8':
         e.preventDefault()
         handleDelete()
+        break
+      case '/':
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        break
+      case 'Escape':
+        if (searchFilter) {
+          e.preventDefault()
+          setSearchFilter('')
+          setSelectedIndex(0)
+        }
         break
     }
   }
@@ -286,11 +316,65 @@ export const FilePane: React.FC<FilePaneProps> = ({
   }
 
 
+  const getFileCountDisplay = () => {
+    if (!content) return ''
+    
+    const allFileCount = content.objects.filter(obj => obj.key !== currentPath).length
+    const allFolderCount = content.folders.length
+    const allTotalItems = allFileCount + allFolderCount
+    
+    // If searching, show filtered vs total counts
+    if (searchFilter) {
+      const filteredItems = allItems.filter(item => item.type !== 'parent')
+      const filteredFileCount = filteredItems.filter(item => item.type === 'file').length
+      const filteredFolderCount = filteredItems.filter(item => item.type === 'folder').length
+      const filteredTotal = filteredItems.length
+      
+      if (content.hasMore) {
+        return `${filteredTotal}/${allTotalItems}+ items (${filteredFileCount}/${allFileCount}+ files, ${filteredFolderCount}/${allFolderCount} folders)`
+      } else {
+        return `${filteredTotal}/${allTotalItems} items (${filteredFileCount}/${allFileCount} files, ${filteredFolderCount}/${allFolderCount} folders)`
+      }
+    }
+    
+    // Normal display without search
+    if (content.hasMore) {
+      return `${allTotalItems}+ items (${allFileCount}+ files, ${allFolderCount} folders)`
+    } else {
+      return `${allTotalItems} items (${allFileCount} files, ${allFolderCount} folders)`
+    }
+  }
+
   return (
     <PaneContainer isActive={isActive}>
       <PaneHeader>
         <PaneTitle>{title}</PaneTitle>
         <PaneHeaderRight>
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search files... (press / to focus)"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSearchFilter('')
+                fileListRef.current?.focus()
+              } else if (e.key === 'Enter') {
+                fileListRef.current?.focus()
+              }
+            }}
+            style={{
+              padding: '4px 8px',
+              marginRight: '8px',
+              border: '1px solid #444',
+              borderRadius: '4px',
+              backgroundColor: '#222',
+              color: '#fff',
+              fontSize: '12px',
+              width: '200px'
+            }}
+          />
           <BucketSelector
             value={selectedCredentialId || ''}
             onChange={(e) => onCredentialChange(e.target.value ? Number(e.target.value) : undefined)}
@@ -338,50 +422,60 @@ export const FilePane: React.FC<FilePaneProps> = ({
 
         {!loading && !error && content && (
           <>
-            {currentPath && (
-              <FileItem
-                isFolder
-                selected={selectedFile === '..'}
-                onClick={() => handleFileClick('..')}
-                onDoubleClick={handleGoUp}
-              >
-                <FileDetails>
-                  <FileName>..</FileName>
-                  <FileSize>&lt;DIR&gt;</FileSize>
-                </FileDetails>
-              </FileItem>
+            {allItems.length === 0 && searchFilter && (
+              <div style={{ padding: '12px', color: '#aaaaaa' }}>
+                No files or folders match "{searchFilter}"
+              </div>
             )}
-
-            {content.folders.map(folder => (
-              <FileItem
-                key={folder}
-                isFolder
-                selected={selectedFile === folder}
-                onClick={() => handleFileClick(folder)}
-                onDoubleClick={() => handleFileDoubleClick(folder)}
-              >
-                <FileDetails>
-                  <FileName>{folder.split('/').slice(-2)[0]}</FileName>
-                  <FileSize>&lt;DIR&gt;</FileSize>
-                </FileDetails>
-              </FileItem>
-            ))}
-
-            {content.objects
-              .filter(obj => obj.key !== currentPath)
-              .map(obj => (
-                <FileItem
-                  key={obj.key}
-                  selected={selectedFile === obj.key}
-                  onClick={() => handleFileClick(obj.key)}
-                  onDoubleClick={() => handleFileDoubleClick(obj)}
-                >
-                  <FileDetails>
-                    <FileName>{obj.key.split('/').pop()}</FileName>
-                    <FileSize>{formatFileSize(obj.size)}</FileSize>
-                  </FileDetails>
-                </FileItem>
-              ))}
+            {allItems.map(item => {
+              if (item.type === 'parent') {
+                return (
+                  <FileItem
+                    key={item.key}
+                    isFolder
+                    selected={selectedFile === item.key}
+                    onClick={() => handleFileClick(item.key)}
+                    onDoubleClick={handleGoUp}
+                  >
+                    <FileDetails>
+                      <FileName>..</FileName>
+                      <FileSize>&lt;DIR&gt;</FileSize>
+                    </FileDetails>
+                  </FileItem>
+                )
+              } else if (item.type === 'folder') {
+                return (
+                  <FileItem
+                    key={item.key}
+                    isFolder
+                    selected={selectedFile === item.key}
+                    onClick={() => handleFileClick(item.key)}
+                    onDoubleClick={() => handleFileDoubleClick(item.key)}
+                  >
+                    <FileDetails>
+                      <FileName>{item.key.split('/').slice(-2)[0]}</FileName>
+                      <FileSize>&lt;DIR&gt;</FileSize>
+                    </FileDetails>
+                  </FileItem>
+                )
+              } else if (item.type === 'file') {
+                return (
+                  <FileItem
+                    key={item.key}
+                    selected={selectedFile === item.key}
+                    onClick={() => handleFileClick(item.key)}
+                    onDoubleClick={() => handleFileDoubleClick(item.obj)}
+                  >
+                    <FileDetails>
+                      <FileName>{item.key.split('/').pop()}</FileName>
+                      <FileSize>{formatFileSize(item.obj.size)}</FileSize>
+                    </FileDetails>
+                  </FileItem>
+                )
+              } else {
+                return null
+              }
+            })}
           </>
         )}
 
@@ -397,6 +491,18 @@ export const FilePane: React.FC<FilePaneProps> = ({
           </div>
         )}
       </FileList>
+
+      {content && (
+        <div style={{ 
+          padding: '8px 12px', 
+          borderTop: '1px solid #333', 
+          fontSize: '12px', 
+          color: '#aaaaaa',
+          backgroundColor: '#1a1a1a'
+        }}>
+          {getFileCountDisplay()}
+        </div>
+      )}
 
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}
