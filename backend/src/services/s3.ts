@@ -107,4 +107,52 @@ export class S3Service {
       throw new Error(`Failed to create folder: ${error}`)
     }
   }
+
+  async searchObjects(query: string, prefix: string = '', maxResults: number = 1000, continuationToken?: string): Promise<BucketContent> {
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.credential.bucketName,
+        Prefix: prefix,
+        Delimiter: '/',
+        MaxKeys: maxResults,
+        ContinuationToken: continuationToken,
+      })
+
+      const response: ListObjectsV2CommandOutput = await this.client.send(command)
+
+      // Filter objects by search query
+      const allObjects: S3Object[] = (response.Contents || []).map(obj => ({
+        key: obj.Key || '',
+        size: obj.Size || 0,
+        lastModified: obj.LastModified || new Date(),
+        etag: obj.ETag || '',
+        storageClass: obj.StorageClass,
+        isFolder: false,
+      }))
+
+      // Filter objects that match the search query
+      const filteredObjects = allObjects.filter(obj => {
+        const fileName = obj.key.split('/').pop() || obj.key
+        return fileName.toLowerCase().includes(query.toLowerCase())
+      })
+
+      // Filter folders by search query  
+      const allFolders = (response.CommonPrefixes || []).map(prefix => prefix.Prefix || '')
+      const filteredFolders = allFolders.filter(folder => {
+        const folderName = folder.split('/').slice(-2)[0]
+        return folderName.toLowerCase().includes(query.toLowerCase())
+      })
+
+      return {
+        objects: filteredObjects,
+        folders: filteredFolders,
+        prefix,
+        hasMore: response.IsTruncated || false,
+        nextContinuationToken: response.NextContinuationToken,
+      }
+    } catch (error) {
+      console.error('Error searching objects:', error)
+      throw new Error(`Failed to search objects: ${error}`)
+    }
+  }
 }
